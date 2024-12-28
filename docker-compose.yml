@@ -1,0 +1,12 @@
+version: '3.8'
+services:
+  strapi:
+    image: pyaesonephyothu/strapi-onenex:latest
+    ports:
+      - "1337:1337"
+    volumes:
+      - /.app:/srv/app
+    environment:
+      DATABASE_CLIENT: sqlite # Use SQLite as the database
+      DATABASE_FILENAME: /srv/app/data.db # Store database in the mounted app directory
+      NODE_ENV: development # Set the environment to development

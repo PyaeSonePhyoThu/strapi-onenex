@@ -1,0 +1,47 @@
+image: docker:20.10
+
+services:
+  - docker:dind
+
+stages:
+  - build
+  - test
+  - deploy
+
+variables:
+  DOCKER_DRIVER: overlay2
+
+build_strapi:
+  stage: build
+  script: 
+    - docker build -t strapi-onenex .
+    - docker tag strapi-onenex pyaesonephyothu/strapi-onenex:latest
+    - echo "$DOCKER_HUB_PASSWORD" | docker login -u "$DOCKER_HUB_USERNAME" --password-stdin
+    - docker push pyaesonephyothu/strapi-onenex:latest
+  
+scan_trivy:
+  stage: test
+  image:
+    name: aquasec/trivy:latest
+    entrypoint: [""]
+  script: 
+    - trivy image --exit-code 0 --severity HIGH pyaesonephyothu/strapi-onenex:latest # Image Scan
+
+deploy_on_EC2:
+  stage: deploy
+  before_script:
+  - 'which ssh-agent || ( apt-get update -y && apt-get install openssh-client -y )'
+  - eval $(ssh-agent -s)
+  - echo "$SSH_PRIVATE_KEY" | tr -d '\r' | ssh-add - > /dev/null
+  - mkdir -p ~/.ssh
+  - chmod 700 ~/.ssh
+  - ssh-keyscan 13.214.210.19 >> ~/.ssh/known_hosts
+  script:
+    - apk add --no-cache openssh-client
+    - ssh ubuntu@13.214.210.19 "docker pull pyaesonephyothu/strapi-onenex:latest"
+    - ssh ubuntu@13.214.210.19 "docker stop strapi-onenex || true && docker rm strapi-onenex || true"
+    - ssh ubuntu@13.214.210.19 "docker run -d --name strapi-onenex -p 1337:1337 pyaesonephyothu/strapi-onenex:latest"
+
+  only:
+    - master
+
